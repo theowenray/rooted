@@ -10,6 +10,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Debug secrets
+        run: |
+          echo "IP length: ${#IP}"
+          echo "KEY length: ${#KEY}"
+        env:
+          IP: ${{ secrets.LIGHTSAIL_IP }}
+          KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+
       - name: Write SSH key
         run: |
           mkdir -p ~/.ssh
