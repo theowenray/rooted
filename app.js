@@ -383,7 +383,7 @@ function App() {
         React.createElement(Logo),
         React.createElement('span', { className: 'header-logo-wordmark' }, 'rooted')
       ),
-      React.createElement('p', null, new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }))
+      React.createElement('p', null, new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }))
     ),
 
     React.createElement('div', { className: 'tab-bar' },
