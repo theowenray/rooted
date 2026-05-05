@@ -10,21 +10,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Debug secrets
-        run: |
-          echo "IP length: ${#IP}"
-          echo "KEY length: ${#KEY}"
-        env:
-          IP: ${{ secrets.LIGHTSAIL_IP }}
-          KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-
       - name: Write SSH key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > ~/.ssh/lightsail.pem
           chmod 600 ~/.ssh/lightsail.pem
-          ssh-keyscan -H ${{ secrets.LIGHTSAIL_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H 3.227.48.73 >> ~/.ssh/known_hosts
 
       - name: Deploy
         run: |
-          ssh -i ~/.ssh/lightsail.pem ubuntu@${{ secrets.LIGHTSAIL_IP }} "cd /var/www/html && sudo git pull origin main"
+          ssh -i ~/.ssh/lightsail.pem ubuntu@3.227.48.73 "cd /var/www/html && sudo git pull origin main"
