@@ -10,19 +10,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Write SSH key
-        env:
-          SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+      - name: Trigger deploy
         run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/lightsail.pem
-          chmod 600 ~/.ssh/lightsail.pem
-          echo "--- key file head ---"
-          head -1 ~/.ssh/lightsail.pem
-          echo "--- key file line count ---"
-          wc -l ~/.ssh/lightsail.pem
-          ssh-keyscan -H 3.227.48.73 >> ~/.ssh/known_hosts
-
-      - name: Deploy
-        run: |
-          ssh -i ~/.ssh/lightsail.pem ubuntu@3.227.48.73 "cd /var/www/html && sudo git pull origin main"
+          curl -f http://3.227.48.73:9000/deploy
