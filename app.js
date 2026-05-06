@@ -1,8 +1,9 @@
 const { useState, useEffect, useCallback } = React;
 
+const API = 'http://3.227.48.73:3001/api';
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = 'rooted_plants';
 const PLANT_EMOJIS = ['🌿', '🌵', '🌱', '🌸', '🌺', '🍀', '🌻', '🌴', '🪴', '🌾', '🍃', '🌲'];
 const CATEGORIES = ['Houseplant', 'Garden', 'Herb', 'Succulent', 'Tree', 'Lawn', 'Flower'];
 const WATER_INTERVALS = [
@@ -14,13 +15,24 @@ const WATER_INTERVALS = [
   { label: 'Once a month', days: 30 },
 ];
 
-function loadPlants() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
-  catch { return []; }
-}
+function getToken() { return localStorage.getItem('rooted_token'); }
+function setToken(t) { localStorage.setItem('rooted_token', t); }
+function clearToken() { localStorage.removeItem('rooted_token'); }
 
-function savePlants(plants) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(plants));
+async function apiFetch(path, options = {}) {
+  const token = getToken();
+  const res = await fetch(`${API}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
 }
 
 function daysSince(dateStr) {
@@ -29,45 +41,90 @@ function daysSince(dateStr) {
 }
 
 function waterStatus(plant) {
-  const days = daysSince(plant.lastWatered);
-  if (days >= plant.waterInterval) return 'due';
-  if (days >= plant.waterInterval - 1) return 'today';
+  const days = daysSince(plant.last_watered);
+  if (days >= plant.water_interval) return 'due';
+  if (days >= plant.water_interval - 1) return 'today';
   return 'ok';
 }
 
 function waterStatusLabel(plant) {
-  const days = daysSince(plant.lastWatered);
-  const remaining = plant.waterInterval - days;
-  if (days >= plant.waterInterval) return `${days - plant.waterInterval + 1}d overdue`;
+  const days = daysSince(plant.last_watered);
+  const remaining = plant.water_interval - days;
+  if (days >= plant.water_interval) return `${days - plant.water_interval + 1}d overdue`;
   if (remaining === 1) return 'Water tomorrow';
   if (remaining <= 0) return 'Water today';
   return `Water in ${remaining}d`;
 }
 
-function uid() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
+// ── Auth Screen ───────────────────────────────────────────────────────────────
 
-// ── Notification helpers ──────────────────────────────────────────────────────
+function AuthScreen({ onAuth }) {
+  const [mode, setMode] = useState('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-async function requestNotifPermission() {
-  if (!('Notification' in window)) return false;
-  const result = await Notification.requestPermission();
-  return result === 'granted';
-}
-
-function scheduleNotifications(plants) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  plants.forEach(plant => {
-    const status = waterStatus(plant);
-    if (status === 'due' || status === 'today') {
-      new Notification('Rooted 🌿', {
-        body: `Time to water your ${plant.name}!`,
-        icon: '/favicon.ico',
-        tag: plant.id,
+  async function handleSubmit() {
+    setError('');
+    setLoading(true);
+    try {
+      const data = await apiFetch(`/auth/${mode}`, {
+        method: 'POST',
+        body: { email, password, name },
       });
+      setToken(data.token);
+      onAuth(data.user);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-  });
+  }
+
+  return React.createElement('div', { className: 'app-shell' },
+    React.createElement('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '40px 20px' } },
+
+      // Logo
+      React.createElement('div', { style: { textAlign: 'center', marginBottom: '40px' } },
+        React.createElement(Logo),
+        React.createElement('div', { style: { fontSize: '28px', fontWeight: 300, letterSpacing: '0.08em', color: 'var(--green)', marginTop: '8px' } }, 'rooted')
+      ),
+
+      // Card
+      React.createElement('div', { style: { background: 'var(--surface)', borderRadius: 'var(--radius)', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' } },
+
+        // Tabs
+        React.createElement('div', { className: 'tab-bar', style: { padding: 0, marginBottom: '20px' } },
+          React.createElement('button', { className: `tab-btn ${mode === 'login' ? 'active' : ''}`, onClick: () => { setMode('login'); setError(''); } }, 'Sign In'),
+          React.createElement('button', { className: `tab-btn ${mode === 'register' ? 'active' : ''}`, onClick: () => { setMode('register'); setError(''); } }, 'Create Account')
+        ),
+
+        mode === 'register' && React.createElement('div', { className: 'form-group' },
+          React.createElement('label', { className: 'form-label' }, 'Name'),
+          React.createElement('input', { className: 'form-input', placeholder: 'Your name', value: name, onChange: e => setName(e.target.value) })
+        ),
+
+        React.createElement('div', { className: 'form-group' },
+          React.createElement('label', { className: 'form-label' }, 'Email'),
+          React.createElement('input', { className: 'form-input', type: 'email', placeholder: 'you@email.com', value: email, onChange: e => setEmail(e.target.value) })
+        ),
+
+        React.createElement('div', { className: 'form-group' },
+          React.createElement('label', { className: 'form-label' }, 'Password'),
+          React.createElement('input', { className: 'form-input', type: 'password', placeholder: '••••••••', value: password, onChange: e => setPassword(e.target.value),
+            onKeyDown: e => e.key === 'Enter' && handleSubmit() })
+        ),
+
+        error && React.createElement('p', { style: { color: 'var(--red)', fontSize: '14px', marginBottom: '12px' } }, error),
+
+        React.createElement('button', { className: 'btn-primary', style: { width: '100%', opacity: loading ? 0.7 : 1 }, onClick: handleSubmit, disabled: loading },
+          loading ? 'Please wait…' : mode === 'login' ? 'Sign In' : 'Create Account'
+        )
+      )
+    )
+  );
 }
 
 // ── Components ────────────────────────────────────────────────────────────────
@@ -77,51 +134,15 @@ function Logo() {
     width: '44', height: '44', viewBox: '0 0 100 100',
     fill: 'none', xmlns: 'http://www.w3.org/2000/svg'
   },
-    // U-shaped soil container
-    React.createElement('path', {
-      d: 'M18 42 Q18 78 50 78 Q82 78 82 42',
-      stroke: '#3a7d44', strokeWidth: '5.5', strokeLinecap: 'round', fill: 'none'
-    }),
-    // Stem
-    React.createElement('line', {
-      x1: '50', y1: '78', x2: '50', y2: '20',
-      stroke: '#3a7d44', strokeWidth: '5.5', strokeLinecap: 'round'
-    }),
-    // Root center down
-    React.createElement('line', {
-      x1: '50', y1: '78', x2: '50', y2: '90',
-      stroke: '#3a7d44', strokeWidth: '4', strokeLinecap: 'round'
-    }),
-    // Root left
-    React.createElement('line', {
-      x1: '50', y1: '83', x2: '32', y2: '90',
-      stroke: '#3a7d44', strokeWidth: '3.5', strokeLinecap: 'round'
-    }),
-    // Root right
-    React.createElement('line', {
-      x1: '50', y1: '83', x2: '68', y2: '90',
-      stroke: '#3a7d44', strokeWidth: '3.5', strokeLinecap: 'round'
-    }),
-    // Root far left
-    React.createElement('line', {
-      x1: '32', y1: '90', x2: '22', y2: '96',
-      stroke: '#3a7d44', strokeWidth: '3', strokeLinecap: 'round'
-    }),
-    // Root far right
-    React.createElement('line', {
-      x1: '68', y1: '90', x2: '78', y2: '96',
-      stroke: '#3a7d44', strokeWidth: '3', strokeLinecap: 'round'
-    }),
-    // Left leaf
-    React.createElement('path', {
-      d: 'M50 38 Q36 22 24 26 Q28 40 50 38Z',
-      stroke: '#3a7d44', strokeWidth: '4.5', strokeLinecap: 'round', strokeLinejoin: 'round', fill: 'none'
-    }),
-    // Right leaf
-    React.createElement('path', {
-      d: 'M50 30 Q62 12 76 16 Q72 32 50 30Z',
-      stroke: '#3a7d44', strokeWidth: '4.5', strokeLinecap: 'round', strokeLinejoin: 'round', fill: 'none'
-    })
+    React.createElement('path', { d: 'M18 42 Q18 78 50 78 Q82 78 82 42', stroke: '#3a7d44', strokeWidth: '5.5', strokeLinecap: 'round', fill: 'none' }),
+    React.createElement('line', { x1: '50', y1: '78', x2: '50', y2: '20', stroke: '#3a7d44', strokeWidth: '5.5', strokeLinecap: 'round' }),
+    React.createElement('line', { x1: '50', y1: '78', x2: '50', y2: '90', stroke: '#3a7d44', strokeWidth: '4', strokeLinecap: 'round' }),
+    React.createElement('line', { x1: '50', y1: '83', x2: '32', y2: '90', stroke: '#3a7d44', strokeWidth: '3.5', strokeLinecap: 'round' }),
+    React.createElement('line', { x1: '50', y1: '83', x2: '68', y2: '90', stroke: '#3a7d44', strokeWidth: '3.5', strokeLinecap: 'round' }),
+    React.createElement('line', { x1: '32', y1: '90', x2: '22', y2: '96', stroke: '#3a7d44', strokeWidth: '3', strokeLinecap: 'round' }),
+    React.createElement('line', { x1: '68', y1: '90', x2: '78', y2: '96', stroke: '#3a7d44', strokeWidth: '3', strokeLinecap: 'round' }),
+    React.createElement('path', { d: 'M50 38 Q36 22 24 26 Q28 40 50 38Z', stroke: '#3a7d44', strokeWidth: '4.5', strokeLinecap: 'round', strokeLinejoin: 'round', fill: 'none' }),
+    React.createElement('path', { d: 'M50 30 Q62 12 76 16 Q72 32 50 30Z', stroke: '#3a7d44', strokeWidth: '4.5', strokeLinecap: 'round', strokeLinejoin: 'round', fill: 'none' })
   );
 }
 
@@ -129,8 +150,7 @@ function WaterBadge({ plant }) {
   const status = waterStatus(plant);
   const label = waterStatusLabel(plant);
   return React.createElement('span', { className: `water-badge ${status}` },
-    status === 'due' ? '💧' : status === 'today' ? '⚠️' : '✓',
-    ' ', label
+    status === 'due' ? '💧' : status === 'today' ? '⚠️' : '✓', ' ', label
   );
 }
 
@@ -153,13 +173,13 @@ function AddPlantModal({ onClose, onSave, editPlant }) {
   const [name, setName] = useState(editPlant?.name || '');
   const [emoji, setEmoji] = useState(editPlant?.emoji || '🌿');
   const [category, setCategory] = useState(editPlant?.category || 'Houseplant');
-  const [waterInterval, setWaterInterval] = useState(editPlant?.waterInterval || 7);
+  const [waterInterval, setWaterInterval] = useState(editPlant?.water_interval || 7);
   const [notes, setNotes] = useState(editPlant?.notes || '');
   const [location, setLocation] = useState(editPlant?.location || '');
 
   function handleSave() {
     if (!name.trim()) return;
-    onSave({ name: name.trim(), emoji, category, waterInterval: Number(waterInterval), notes, location });
+    onSave({ name: name.trim(), emoji, category, water_interval: Number(waterInterval), notes, location });
   }
 
   return React.createElement('div', { className: 'modal-overlay', onClick: onClose },
@@ -170,64 +190,39 @@ function AddPlantModal({ onClose, onSave, editPlant }) {
       React.createElement('div', { className: 'form-group' },
         React.createElement('label', { className: 'form-label' }, 'Pick an icon'),
         React.createElement('div', { className: 'emoji-picker' },
-          PLANT_EMOJIS.map(e =>
-            React.createElement('button', {
-              key: e,
-              className: `emoji-option ${emoji === e ? 'selected' : ''}`,
-              onClick: () => setEmoji(e)
-            }, e)
-          )
+          PLANT_EMOJIS.map(e => React.createElement('button', {
+            key: e, className: `emoji-option ${emoji === e ? 'selected' : ''}`, onClick: () => setEmoji(e)
+          }, e))
         )
       ),
 
       React.createElement('div', { className: 'form-group' },
         React.createElement('label', { className: 'form-label' }, 'Name'),
-        React.createElement('input', {
-          className: 'form-input',
-          placeholder: 'e.g. Monstera, Basil, Front Lawn…',
-          value: name,
-          onChange: e => setName(e.target.value)
-        })
+        React.createElement('input', { className: 'form-input', placeholder: 'e.g. Monstera, Basil…', value: name, onChange: e => setName(e.target.value) })
       ),
 
       React.createElement('div', { className: 'form-group' },
         React.createElement('label', { className: 'form-label' }, 'Category'),
-        React.createElement('select', {
-          className: 'form-select',
-          value: category,
-          onChange: e => setCategory(e.target.value)
-        }, CATEGORIES.map(c => React.createElement('option', { key: c, value: c }, c)))
+        React.createElement('select', { className: 'form-select', value: category, onChange: e => setCategory(e.target.value) },
+          CATEGORIES.map(c => React.createElement('option', { key: c, value: c }, c))
+        )
       ),
 
       React.createElement('div', { className: 'form-group' },
         React.createElement('label', { className: 'form-label' }, 'Watering schedule'),
-        React.createElement('select', {
-          className: 'form-select',
-          value: waterInterval,
-          onChange: e => setWaterInterval(e.target.value)
-        }, WATER_INTERVALS.map(w =>
-          React.createElement('option', { key: w.days, value: w.days }, w.label)
-        ))
+        React.createElement('select', { className: 'form-select', value: waterInterval, onChange: e => setWaterInterval(e.target.value) },
+          WATER_INTERVALS.map(w => React.createElement('option', { key: w.days, value: w.days }, w.label))
+        )
       ),
 
       React.createElement('div', { className: 'form-group' },
         React.createElement('label', { className: 'form-label' }, 'Location (optional)'),
-        React.createElement('input', {
-          className: 'form-input',
-          placeholder: 'e.g. Living room, Backyard…',
-          value: location,
-          onChange: e => setLocation(e.target.value)
-        })
+        React.createElement('input', { className: 'form-input', placeholder: 'e.g. Living room…', value: location, onChange: e => setLocation(e.target.value) })
       ),
 
       React.createElement('div', { className: 'form-group' },
         React.createElement('label', { className: 'form-label' }, 'Notes (optional)'),
-        React.createElement('textarea', {
-          className: 'form-textarea',
-          placeholder: 'Sunlight needs, soil type, tips…',
-          value: notes,
-          onChange: e => setNotes(e.target.value)
-        })
+        React.createElement('textarea', { className: 'form-textarea', placeholder: 'Sunlight needs, soil type…', value: notes, onChange: e => setNotes(e.target.value) })
       ),
 
       React.createElement('div', { className: 'btn-row' },
@@ -239,12 +234,10 @@ function AddPlantModal({ onClose, onSave, editPlant }) {
 }
 
 function PlantDetail({ plant, onBack, onWater, onEdit, onDelete }) {
-  const intervalLabel = WATER_INTERVALS.find(w => w.days === plant.waterInterval)?.label || `Every ${plant.waterInterval} days`;
+  const intervalLabel = WATER_INTERVALS.find(w => w.days === plant.water_interval)?.label || `Every ${plant.water_interval} days`;
 
   return React.createElement('div', null,
-    React.createElement('button', { className: 'back-btn', onClick: onBack },
-      '‹ All Plants'
-    ),
+    React.createElement('button', { className: 'back-btn', onClick: onBack }, '‹ All Plants'),
     React.createElement('div', { className: 'detail-header' },
       React.createElement('div', { className: 'detail-emoji' }, plant.emoji),
       React.createElement('div', null,
@@ -266,13 +259,13 @@ function PlantDetail({ plant, onBack, onWater, onEdit, onDelete }) {
       React.createElement('div', { className: 'info-row' },
         React.createElement('span', { className: 'info-row-label' }, 'Last watered'),
         React.createElement('span', { className: 'info-row-value' },
-          plant.lastWatered ? new Date(plant.lastWatered).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Never'
+          plant.last_watered ? new Date(plant.last_watered).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Never'
         )
       ),
       React.createElement('div', { className: 'info-row' },
         React.createElement('span', { className: 'info-row-label' }, 'Added'),
         React.createElement('span', { className: 'info-row-value' },
-          new Date(plant.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          new Date(plant.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         )
       )
     ),
@@ -293,64 +286,91 @@ function PlantDetail({ plant, onBack, onWater, onEdit, onDelete }) {
 // ── Main App ──────────────────────────────────────────────────────────────────
 
 function App() {
-  const [plants, setPlants] = useState(loadPlants);
+  const [user, setUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [plants, setPlants] = useState([]);
   const [tab, setTab] = useState('today');
   const [showAdd, setShowAdd] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [editingPlant, setEditingPlant] = useState(null);
-  const [notifGranted, setNotifGranted] = useState(
-    typeof Notification !== 'undefined' && Notification.permission === 'granted'
-  );
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => { savePlants(plants); }, [plants]);
-
-  // Check for due plants on load and daily
+  // Check for existing token on load
   useEffect(() => {
-    if (notifGranted) scheduleNotifications(plants);
-    const interval = setInterval(() => {
-      if (notifGranted) scheduleNotifications(plants);
-    }, 3600000); // hourly check
-    return () => clearInterval(interval);
-  }, [plants, notifGranted]);
+    const token = getToken();
+    if (!token) { setAuthChecked(true); return; }
+    apiFetch('/auth/login', { method: 'POST', body: {} })
+      .catch(() => {})
+      .finally(() => setAuthChecked(true));
+    // Just mark checked — token presence means we try to load plants
+    setAuthChecked(true);
+  }, []);
 
-  function handleWater(id) {
-    setPlants(prev => prev.map(p =>
-      p.id === id ? { ...p, lastWatered: new Date().toISOString() } : p
-    ));
+  // Load plants when user is set
+  useEffect(() => {
+    if (!getToken()) return;
+    loadPlants();
+  }, [user]);
+
+  async function loadPlants() {
+    try {
+      const data = await apiFetch('/plants');
+      setPlants(data);
+    } catch {
+      clearToken();
+      setUser(null);
+    }
   }
 
-  function handleAdd(data) {
+  function handleAuth(userData) {
+    setUser(userData);
+    loadPlants();
+  }
+
+  function handleLogout() {
+    clearToken();
+    setUser(null);
+    setPlants([]);
+  }
+
+  async function handleWater(id) {
+    const plant = plants.find(p => p.id === id);
+    if (!plant) return;
+    const updated = await apiFetch(`/plants/${id}`, {
+      method: 'PUT',
+      body: { ...plant, last_watered: new Date().toISOString() }
+    });
+    setPlants(prev => prev.map(p => p.id === id ? updated : p));
+  }
+
+  async function handleSave(data) {
     if (editingPlant) {
-      setPlants(prev => prev.map(p => p.id === editingPlant.id ? { ...p, ...data } : p));
+      const updated = await apiFetch(`/plants/${editingPlant.id}`, { method: 'PUT', body: { ...editingPlant, ...data } });
+      setPlants(prev => prev.map(p => p.id === editingPlant.id ? updated : p));
       setEditingPlant(null);
     } else {
-      setPlants(prev => [...prev, { id: uid(), createdAt: new Date().toISOString(), lastWatered: null, ...data }]);
+      const created = await apiFetch('/plants', { method: 'POST', body: data });
+      setPlants(prev => [...prev, created]);
     }
     setShowAdd(false);
   }
 
-  function handleDelete(id) {
+  async function handleDelete(id) {
+    await apiFetch(`/plants/${id}`, { method: 'DELETE' });
     setPlants(prev => prev.filter(p => p.id !== id));
     setSelectedId(null);
   }
 
-  async function handleEnableNotifs() {
-    const granted = await requestNotifPermission();
-    setNotifGranted(granted);
-    if (granted) scheduleNotifications(plants);
-  }
+  if (!authChecked) return null;
+  if (!getToken() && !user) return React.createElement(AuthScreen, { onAuth: handleAuth });
 
   const selectedPlant = plants.find(p => p.id === selectedId);
-
-  // Sorted lists
-  const duePlants = plants.filter(p => waterStatus(p) !== 'ok')
-    .sort((a, b) => daysSince(a.lastWatered) - daysSince(b.lastWatered));
+  const duePlants = plants.filter(p => waterStatus(p) !== 'ok').sort((a, b) => daysSince(a.last_watered) - daysSince(b.last_watered));
   const allPlants = [...plants].sort((a, b) => a.name.localeCompare(b.name));
-
   const dueCount = plants.filter(p => waterStatus(p) === 'due').length;
   const todayCount = plants.filter(p => waterStatus(p) === 'today').length;
 
-  // ── Detail view ──
+  // Detail view
   if (selectedPlant) {
     return React.createElement('div', { className: 'app-shell' },
       React.createElement('div', { className: 'header' },
@@ -368,22 +388,25 @@ function App() {
           onDelete: () => handleDelete(selectedPlant.id)
         })
       ),
-      (showAdd || editingPlant) && React.createElement(AddPlantModal, {
+      showAdd && React.createElement(AddPlantModal, {
         onClose: () => { setShowAdd(false); setEditingPlant(null); },
-        onSave: handleAdd,
+        onSave: handleSave,
         editPlant: editingPlant
       })
     );
   }
 
-  // ── Main view ──
+  // Main view
   return React.createElement('div', { className: 'app-shell' },
     React.createElement('div', { className: 'header' },
       React.createElement('div', { className: 'header-logo' },
         React.createElement(Logo),
         React.createElement('span', { className: 'header-logo-wordmark' }, 'rooted')
       ),
-      React.createElement('p', null, new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }))
+      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+        React.createElement('p', null, new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })),
+        React.createElement('button', { onClick: handleLogout, style: { background: 'none', border: 'none', fontSize: '13px', color: 'var(--text-secondary)', cursor: 'pointer' } }, 'Sign out')
+      )
     ),
 
     React.createElement('div', { className: 'tab-bar' },
@@ -392,71 +415,38 @@ function App() {
     ),
 
     React.createElement('div', { className: 'content' },
-
-      // Notification prompt
-      !notifGranted && plants.length > 0 && React.createElement('div', {
-        className: 'notif-banner',
-        onClick: handleEnableNotifs,
-        style: { cursor: 'pointer' }
-      }, '🔔', ' Enable notifications to get watering reminders'),
-
       tab === 'today' && React.createElement('div', null,
-        // Summary card
         plants.length > 0 && React.createElement('div', { className: 'summary-card' },
           React.createElement('h2', null, dueCount + todayCount > 0 ? `${dueCount + todayCount} plant${dueCount + todayCount !== 1 ? 's' : ''} need water` : 'All plants are happy 🌿'),
           React.createElement('p', null, dueCount + todayCount > 0 ? 'Tap 💧 to mark as watered' : 'Check back tomorrow'),
-          plants.length > 0 && React.createElement('div', { className: 'summary-stats' },
-            React.createElement('div', { className: 'stat' },
-              React.createElement('div', { className: 'stat-num' }, plants.length),
-              React.createElement('div', { className: 'stat-label' }, 'Total')
-            ),
-            React.createElement('div', { className: 'stat' },
-              React.createElement('div', { className: 'stat-num' }, dueCount),
-              React.createElement('div', { className: 'stat-label' }, 'Overdue')
-            ),
-            React.createElement('div', { className: 'stat' },
-              React.createElement('div', { className: 'stat-num' }, todayCount),
-              React.createElement('div', { className: 'stat-label' }, 'Due soon')
-            )
+          React.createElement('div', { className: 'summary-stats' },
+            React.createElement('div', { className: 'stat' }, React.createElement('div', { className: 'stat-num' }, plants.length), React.createElement('div', { className: 'stat-label' }, 'Total')),
+            React.createElement('div', { className: 'stat' }, React.createElement('div', { className: 'stat-num' }, dueCount), React.createElement('div', { className: 'stat-label' }, 'Overdue')),
+            React.createElement('div', { className: 'stat' }, React.createElement('div', { className: 'stat-num' }, todayCount), React.createElement('div', { className: 'stat-label' }, 'Due soon'))
           )
         ),
-
         duePlants.length > 0
           ? React.createElement('div', null,
               React.createElement('div', { className: 'section-label' }, 'Needs water'),
               duePlants.map(p => React.createElement(PlantCard, { key: p.id, plant: p, onWater: handleWater, onClick: () => setSelectedId(p.id) }))
             )
           : plants.length > 0
-            ? React.createElement('div', { className: 'empty-state' },
-                React.createElement('div', { className: 'empty-icon' }, '✅'),
-                React.createElement('h3', null, 'All watered'),
-                React.createElement('p', null, 'Nothing needs water right now. Check back later.')
-              )
-            : React.createElement('div', { className: 'empty-state' },
-                React.createElement('div', { className: 'empty-icon' }, '🪴'),
-                React.createElement('h3', null, 'No plants yet'),
-                React.createElement('p', null, 'Add your first plant to start tracking watering schedules.')
-              )
+            ? React.createElement('div', { className: 'empty-state' }, React.createElement('div', { className: 'empty-icon' }, '✅'), React.createElement('h3', null, 'All watered'), React.createElement('p', null, 'Nothing needs water right now.'))
+            : React.createElement('div', { className: 'empty-state' }, React.createElement('div', { className: 'empty-icon' }, '🪴'), React.createElement('h3', null, 'No plants yet'), React.createElement('p', null, 'Add your first plant to get started.'))
       ),
 
       tab === 'all' && React.createElement('div', null,
         allPlants.length > 0
           ? allPlants.map(p => React.createElement(PlantCard, { key: p.id, plant: p, onWater: handleWater, onClick: () => setSelectedId(p.id) }))
-          : React.createElement('div', { className: 'empty-state' },
-              React.createElement('div', { className: 'empty-icon' }, '🪴'),
-              React.createElement('h3', null, 'No plants yet'),
-              React.createElement('p', null, 'Tap the button below to add your first plant.')
-            )
+          : React.createElement('div', { className: 'empty-state' }, React.createElement('div', { className: 'empty-icon' }, '🪴'), React.createElement('h3', null, 'No plants yet'), React.createElement('p', null, 'Tap the button below to add your first plant.'))
       )
     ),
 
-    React.createElement('button', { className: 'fab', onClick: () => setShowAdd(true) },
-      '＋ Add Plant'
-    ),
+    React.createElement('button', { className: 'fab', onClick: () => setShowAdd(true) }, '＋ Add Plant'),
 
     showAdd && React.createElement(AddPlantModal, {
       onClose: () => { setShowAdd(false); setEditingPlant(null); },
-      onSave: handleAdd,
+      onSave: handleSave,
       editPlant: editingPlant
     })
   );
