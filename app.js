@@ -1,6 +1,6 @@
 const { useState, useEffect, useCallback } = React;
 
-const API = 'http://3.227.48.73:3001/api';
+const API = '/api';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
