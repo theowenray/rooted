@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  name VARCHAR(255) DEFAULT '',
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS plants (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  emoji VARCHAR(10) DEFAULT '🌿',
+  category VARCHAR(100) DEFAULT 'Houseplant',
+  water_interval INTEGER DEFAULT 7,
+  location VARCHAR(255) DEFAULT '',
+  notes TEXT DEFAULT '',
+  last_watered TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
