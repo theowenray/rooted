@@ -12,4 +12,4 @@ jobs:
 
       - name: Trigger deploy
         run: |
-          curl -f http://3.227.48.73:9000/deploy
+          curl -f http://3.227.48.73:9000/hooks/deploy
