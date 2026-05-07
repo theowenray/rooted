@@ -61,8 +61,10 @@ function waterStatusLabel(plant) {
 function AuthScreen({ onAuth }) {
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [login, setLogin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -70,10 +72,10 @@ function AuthScreen({ onAuth }) {
     setError('');
     setLoading(true);
     try {
-      const data = await apiFetch(`/auth/${mode}`, {
-        method: 'POST',
-        body: { email, password, name },
-      });
+      const body = mode === 'login'
+        ? { login, password }
+        : { email, username, password, name };
+      const data = await apiFetch(`/auth/${mode}`, { method: 'POST', body });
       setToken(data.token);
       onAuth(data.user);
     } catch (err) {
@@ -86,29 +88,36 @@ function AuthScreen({ onAuth }) {
   return React.createElement('div', { className: 'app-shell' },
     React.createElement('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '40px 20px' } },
 
-      // Logo
       React.createElement('div', { style: { textAlign: 'center', marginBottom: '40px' } },
         React.createElement(Logo),
         React.createElement('div', { style: { fontSize: '28px', fontWeight: 300, letterSpacing: '0.08em', color: 'var(--green)', marginTop: '8px' } }, 'rooted')
       ),
 
-      // Card
       React.createElement('div', { style: { background: 'var(--surface)', borderRadius: 'var(--radius)', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' } },
 
-        // Tabs
         React.createElement('div', { className: 'tab-bar', style: { padding: 0, marginBottom: '20px' } },
           React.createElement('button', { className: `tab-btn ${mode === 'login' ? 'active' : ''}`, onClick: () => { setMode('login'); setError(''); } }, 'Sign In'),
           React.createElement('button', { className: `tab-btn ${mode === 'register' ? 'active' : ''}`, onClick: () => { setMode('register'); setError(''); } }, 'Create Account')
         ),
 
-        mode === 'register' && React.createElement('div', { className: 'form-group' },
-          React.createElement('label', { className: 'form-label' }, 'Name'),
-          React.createElement('input', { className: 'form-input', placeholder: 'Your name', value: name, onChange: e => setName(e.target.value) })
+        mode === 'register' && React.createElement('div', null,
+          React.createElement('div', { className: 'form-group' },
+            React.createElement('label', { className: 'form-label' }, 'Name'),
+            React.createElement('input', { className: 'form-input', placeholder: 'Your name', value: name, onChange: e => setName(e.target.value) })
+          ),
+          React.createElement('div', { className: 'form-group' },
+            React.createElement('label', { className: 'form-label' }, 'Username'),
+            React.createElement('input', { className: 'form-input', placeholder: 'e.g. plantlover42', value: username, onChange: e => setUsername(e.target.value) })
+          ),
+          React.createElement('div', { className: 'form-group' },
+            React.createElement('label', { className: 'form-label' }, 'Email'),
+            React.createElement('input', { className: 'form-input', type: 'email', placeholder: 'you@email.com', value: email, onChange: e => setEmail(e.target.value) })
+          )
         ),
 
-        React.createElement('div', { className: 'form-group' },
-          React.createElement('label', { className: 'form-label' }, 'Email'),
-          React.createElement('input', { className: 'form-input', type: 'email', placeholder: 'you@email.com', value: email, onChange: e => setEmail(e.target.value) })
+        mode === 'login' && React.createElement('div', { className: 'form-group' },
+          React.createElement('label', { className: 'form-label' }, 'Email or Username'),
+          React.createElement('input', { className: 'form-input', placeholder: 'Email or username', value: login, onChange: e => setLogin(e.target.value) })
         ),
 
         React.createElement('div', { className: 'form-group' },
