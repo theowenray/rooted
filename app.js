@@ -185,16 +185,70 @@ function AddPlantModal({ onClose, onSave, editPlant }) {
   const [waterInterval, setWaterInterval] = useState(editPlant?.water_interval || 7);
   const [notes, setNotes] = useState(editPlant?.notes || '');
   const [location, setLocation] = useState(editPlant?.location || '');
+  const [suggestions, setSuggestions] = useState([]);
+  const [selectedPlantInfo, setSelectedPlantInfo] = useState(null);
+
+  function handleNameChange(val) {
+    setName(val);
+    setSuggestions(searchPlants(val));
+    if (selectedPlantInfo && val !== selectedPlantInfo.name) setSelectedPlantInfo(null);
+  }
+
+  function handleSuggestionPick(plant) {
+    setName(plant.name);
+    setEmoji(plant.emoji);
+    setCategory(plant.category);
+    setWaterInterval(plant.water_interval);
+    setNotes(plant.notes);
+    setSelectedPlantInfo(plant);
+    setSuggestions([]);
+  }
 
   function handleSave() {
     if (!name.trim()) return;
     onSave({ name: name.trim(), emoji, category, water_interval: Number(waterInterval), notes, location });
   }
 
+  const intervalLabel = WATER_INTERVALS.find(w => w.days === Number(waterInterval))?.label;
+
   return React.createElement('div', { className: 'modal-overlay', onClick: onClose },
     React.createElement('div', { className: 'modal-sheet', onClick: e => e.stopPropagation() },
       React.createElement('div', { className: 'modal-handle' }),
       React.createElement('div', { className: 'modal-title' }, editPlant ? 'Edit Plant' : 'Add a Plant'),
+
+      // Name with autocomplete
+      React.createElement('div', { className: 'form-group' },
+        React.createElement('label', { className: 'form-label' }, 'Plant Name'),
+        React.createElement('div', { className: 'autocomplete-wrap' },
+          React.createElement('input', {
+            className: 'form-input',
+            placeholder: 'e.g. Pothos, Monstera, Basil…',
+            value: name,
+            onChange: e => handleNameChange(e.target.value),
+            autoComplete: 'off'
+          }),
+          suggestions.length > 0 && React.createElement('div', { className: 'autocomplete-list' },
+            suggestions.map(p => React.createElement('div', {
+              key: p.name,
+              className: 'autocomplete-item',
+              onClick: () => handleSuggestionPick(p)
+            },
+              React.createElement('span', { className: 'autocomplete-item-emoji' }, p.emoji),
+              React.createElement('div', { className: 'autocomplete-item-info' },
+                React.createElement('div', { className: 'autocomplete-item-name' }, p.name),
+                React.createElement('div', { className: 'autocomplete-item-sub' }, `${p.category} · ${WATER_INTERVALS.find(w => w.days === p.water_interval)?.label}`)
+              )
+            ))
+          )
+        )
+      ),
+
+      // Care info banner when a known plant is selected
+      selectedPlantInfo && React.createElement('div', { className: 'plant-info-banner' },
+        React.createElement('strong', null, '☀️ Light: '), selectedPlantInfo.light, React.createElement('br'),
+        React.createElement('strong', null, '💧 Water: '), intervalLabel, React.createElement('br'),
+        selectedPlantInfo.notes
+      ),
 
       React.createElement('div', { className: 'form-group' },
         React.createElement('label', { className: 'form-label' }, 'Pick an icon'),
@@ -203,11 +257,6 @@ function AddPlantModal({ onClose, onSave, editPlant }) {
             key: e, className: `emoji-option ${emoji === e ? 'selected' : ''}`, onClick: () => setEmoji(e)
           }, e))
         )
-      ),
-
-      React.createElement('div', { className: 'form-group' },
-        React.createElement('label', { className: 'form-label' }, 'Name'),
-        React.createElement('input', { className: 'form-input', placeholder: 'e.g. Monstera, Basil…', value: name, onChange: e => setName(e.target.value) })
       ),
 
       React.createElement('div', { className: 'form-group' },
