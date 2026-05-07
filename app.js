@@ -510,4 +510,21 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('app')).render(React.createElement(App));
+function VersionBadge() {
+  const [version, setVersion] = useState('');
+  useEffect(() => {
+    fetch('/version.json')
+      .then(r => r.json())
+      .then(d => setVersion(d.version))
+      .catch(() => {});
+  }, []);
+  if (!version) return null;
+  return React.createElement('div', { className: 'version-badge' }, version);
+}
+
+ReactDOM.createRoot(document.getElementById('app')).render(
+  React.createElement(React.Fragment, null,
+    React.createElement(App),
+    React.createElement(VersionBadge)
+  )
+);

@@ -490,3 +490,16 @@ body {
 .stat { text-align: center; }
 .stat-num { font-size: 28px; font-weight: 700; }
 .stat-label { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+
+/* Version badge */
+.version-badge {
+  position: fixed;
+  bottom: 10px;
+  left: 12px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  opacity: 0.5;
+  font-family: monospace;
+  z-index: 5;
+  pointer-events: none;
+}
