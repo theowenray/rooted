@@ -19,12 +19,12 @@ router.get('/', async (req, res) => {
 
 // Add plant
 router.post('/', async (req, res) => {
-  const { name, emoji, category, water_interval, location, notes } = req.body;
+  const { name, emoji, category, water_interval, location, notes, photo } = req.body;
   try {
     const result = await pool.query(
-      `INSERT INTO plants (user_id, name, emoji, category, water_interval, location, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [req.user.id, name, emoji, category, water_interval, location || '', notes || '']
+      `INSERT INTO plants (user_id, name, emoji, category, water_interval, location, notes, photo)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [req.user.id, name, emoji, category, water_interval, location || '', notes || '', photo || null]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -34,13 +34,13 @@ router.post('/', async (req, res) => {
 
 // Update plant
 router.put('/:id', async (req, res) => {
-  const { name, emoji, category, water_interval, location, notes, last_watered } = req.body;
+  const { name, emoji, category, water_interval, location, notes, last_watered, photo } = req.body;
   try {
     const result = await pool.query(
       `UPDATE plants SET name=$1, emoji=$2, category=$3, water_interval=$4,
-       location=$5, notes=$6, last_watered=$7
-       WHERE id=$8 AND user_id=$9 RETURNING *`,
-      [name, emoji, category, water_interval, location, notes, last_watered, req.params.id, req.user.id]
+       location=$5, notes=$6, last_watered=$7, photo=$8
+       WHERE id=$9 AND user_id=$10 RETURNING *`,
+      [name, emoji, category, water_interval, location, notes, last_watered, photo || null, req.params.id, req.user.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Plant not found' });
     res.json(result.rows[0]);

@@ -165,7 +165,9 @@ function WaterBadge({ plant }) {
 
 function PlantCard({ plant, onWater, onClick }) {
   return React.createElement('div', { className: 'plant-card', onClick },
-    React.createElement('div', { className: 'plant-emoji' }, plant.emoji),
+    plant.photo
+      ? React.createElement('img', { src: plant.photo, alt: plant.name, className: 'plant-card-photo' })
+      : React.createElement('div', { className: 'plant-emoji' }, plant.emoji),
     React.createElement('div', { className: 'plant-info' },
       React.createElement('div', { className: 'plant-name' }, plant.name),
       React.createElement('div', { className: 'plant-type' }, plant.category),
@@ -185,6 +187,7 @@ function AddPlantModal({ onClose, onSave, editPlant }) {
   const [waterInterval, setWaterInterval] = useState(editPlant?.water_interval || 7);
   const [notes, setNotes] = useState(editPlant?.notes || '');
   const [location, setLocation] = useState(editPlant?.location || '');
+  const [photo, setPhoto] = useState(editPlant?.photo || null);
   const [suggestions, setSuggestions] = useState([]);
   const [selectedPlantInfo, setSelectedPlantInfo] = useState(null);
 
@@ -199,14 +202,21 @@ function AddPlantModal({ onClose, onSave, editPlant }) {
     setEmoji(plant.emoji);
     setCategory(plant.category);
     setWaterInterval(plant.water_interval);
-    setNotes(plant.notes);
     setSelectedPlantInfo(plant);
     setSuggestions([]);
   }
 
+  function handlePhoto(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setPhoto(ev.target.result);
+    reader.readAsDataURL(file);
+  }
+
   function handleSave() {
     if (!name.trim()) return;
-    onSave({ name: name.trim(), emoji, category, water_interval: Number(waterInterval), notes, location });
+    onSave({ name: name.trim(), emoji, category, water_interval: Number(waterInterval), notes, location, photo });
   }
 
   const intervalLabel = WATER_INTERVALS.find(w => w.days === Number(waterInterval))?.label;
@@ -215,6 +225,19 @@ function AddPlantModal({ onClose, onSave, editPlant }) {
     React.createElement('div', { className: 'modal-sheet', onClick: e => e.stopPropagation() },
       React.createElement('div', { className: 'modal-handle' }),
       React.createElement('div', { className: 'modal-title' }, editPlant ? 'Edit Plant' : 'Add a Plant'),
+
+      // Photo upload
+      React.createElement('div', { className: 'form-group' },
+        React.createElement('label', { className: 'form-label' }, 'Photo (optional)'),
+        React.createElement('label', { className: 'photo-upload' },
+          photo && React.createElement('img', { src: photo, alt: 'plant' }),
+          !photo && React.createElement('div', { style: { textAlign: 'center' } },
+            React.createElement('div', { className: 'photo-upload-icon' }, '📷'),
+            React.createElement('div', { className: 'photo-upload-label' }, 'Tap to add a photo')
+          ),
+          React.createElement('input', { type: 'file', accept: 'image/*', onChange: handlePhoto })
+        )
+      ),
 
       // Name with autocomplete
       React.createElement('div', { className: 'form-group' },
@@ -229,9 +252,7 @@ function AddPlantModal({ onClose, onSave, editPlant }) {
           }),
           suggestions.length > 0 && React.createElement('div', { className: 'autocomplete-list' },
             suggestions.map(p => React.createElement('div', {
-              key: p.name,
-              className: 'autocomplete-item',
-              onClick: () => handleSuggestionPick(p)
+              key: p.name, className: 'autocomplete-item', onClick: () => handleSuggestionPick(p)
             },
               React.createElement('span', { className: 'autocomplete-item-emoji' }, p.emoji),
               React.createElement('div', { className: 'autocomplete-item-info' },
@@ -243,7 +264,6 @@ function AddPlantModal({ onClose, onSave, editPlant }) {
         )
       ),
 
-      // Care info banner when a known plant is selected
       selectedPlantInfo && React.createElement('div', { className: 'plant-info-banner' },
         React.createElement('strong', null, '☀️ Light: '), selectedPlantInfo.light, React.createElement('br'),
         React.createElement('strong', null, '💧 Water: '), intervalLabel, React.createElement('br'),
@@ -296,6 +316,7 @@ function PlantDetail({ plant, onBack, onWater, onEdit, onDelete }) {
 
   return React.createElement('div', null,
     React.createElement('button', { className: 'back-btn', onClick: onBack }, '‹ All Plants'),
+    plant.photo && React.createElement('img', { src: plant.photo, alt: plant.name, className: 'detail-photo' }),
     React.createElement('div', { className: 'detail-header' },
       React.createElement('div', { className: 'detail-emoji' }, plant.emoji),
       React.createElement('div', null,

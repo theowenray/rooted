@@ -17,5 +17,6 @@ CREATE TABLE IF NOT EXISTS plants (
   location VARCHAR(255) DEFAULT '',
   notes TEXT DEFAULT '',
   last_watered TIMESTAMP,
+  photo TEXT,
   created_at TIMESTAMP DEFAULT NOW()
 );
