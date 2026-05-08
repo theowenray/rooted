@@ -14,9 +14,42 @@ CREATE TABLE IF NOT EXISTS plants (
   emoji VARCHAR(10) DEFAULT '🌿',
   category VARCHAR(100) DEFAULT 'Houseplant',
   water_interval INTEGER DEFAULT 7,
+  fertilize_interval INTEGER DEFAULT 30,
   location VARCHAR(255) DEFAULT '',
+  room VARCHAR(255) DEFAULT '',
   notes TEXT DEFAULT '',
   last_watered TIMESTAMP,
+  last_fertilized TIMESTAMP,
+  health VARCHAR(20) DEFAULT 'thriving',
   photo TEXT,
+  tags TEXT[] DEFAULT '{}',
+  streak_start TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS water_logs (
+  id SERIAL PRIMARY KEY,
+  plant_id INTEGER REFERENCES plants(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  action VARCHAR(50) DEFAULT 'watered',
+  note TEXT DEFAULT '',
+  photo TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS journal_entries (
+  id SERIAL PRIMARY KEY,
+  plant_id INTEGER REFERENCES plants(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  note TEXT NOT NULL,
+  photo TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS rooms (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  emoji VARCHAR(10) DEFAULT '🏠',
   created_at TIMESTAMP DEFAULT NOW()
 );

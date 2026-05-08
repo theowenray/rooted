@@ -538,3 +538,20 @@ body {
   border-radius: var(--radius);
   margin-bottom: 20px;
 }
+
+/* Dark mode */
+body.dark {
+  --green: #5cb270;
+  --green-light: #1a3a1f;
+  --green-mid: #2d5a35;
+  --bg: #1c1c1e;
+  --surface: #2c2c2e;
+  --text: #f2f2f7;
+  --text-secondary: #98989d;
+  --border: #3a3a3c;
+}
+
+body.dark .header { background: var(--bg); }
+body.dark .summary-card { background: var(--green-mid); }
+body.dark .plant-info-banner { background: var(--green-light); }
+body.dark .photo-upload { border-color: var(--border); background: var(--surface); }
